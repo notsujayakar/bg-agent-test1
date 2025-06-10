@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Treasure Chest Hunt – A Binary Search Game</title>
+  <style>
+    /* Basic reset */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: "Gill Sans", "Comic Sans MS", sans-serif;
+    }
+
+    body {
+      background: #fddc93;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .game-wrapper {
+      background: #fffbea;
+      border: 6px solid #f8b400;
+      border-radius: 20px;
+      padding: 30px 20px;
+      width: 90%;
+      max-width: 700px;
+      text-align: center;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    h1 {
+      color: #ff6b35;
+      margin-bottom: 14px;
+      font-size: 2.2rem;
+    }
+
+    #instruction {
+      font-size: 1.25rem;
+      margin: 18px 0 10px;
+      color: #333;
+    }
+
+    /* Treasure chest list */
+    #chest-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+      gap: 8px;
+      margin: 22px 0;
+    }
+
+    .chest {
+      position: relative;
+      width: 100%;
+      padding-top: 100%; /* Square */
+      cursor: pointer;
+      border-radius: 8px;
+      transition: transform 0.25s;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: transparent; /* hide number by default */
+    }
+
+    .chest img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    .chest:hover {
+      transform: scale(1.05);
+    }
+
+    .mid-choice {
+      outline: 5px dashed #0fa3b1;
+      outline-offset: -5px;
+      animation: pulse 1s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { outline-color: #0fa3b1; }
+      50% { outline-color: #b3f2ff; }
+    }
+
+    /* Result banner */
+    #result-banner {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #28a745;
+      margin-top: 20px;
+      min-height: 40px;
+    }
+
+    /* Mobile adjustments */
+    @media (max-width: 420px) {
+      h1 {
+        font-size: 1.6rem;
+      }
+      #instruction {
+        font-size: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-wrapper">
+    <h1>Treasure Chest Hunt</h1>
+    <p id="instruction">Help Coco the Cat find her fishy treasure! Tap the glowing chest.</p>
+
+    <div id="chest-container"></div>
+
+    <div id="result-banner"></div>
+  </div>
+
+  <audio id="correct-sound" src="https://cdn.jsdelivr.net/gh/himalayasingh/music@main/nature/success_bell.mp3"></audio>
+  <audio id="wrong-sound"   src="https://cdn.jsdelivr.net/gh/himalayasingh/music@main/nature/negative_beep.mp3"></audio>
+
+  <script>
+    // Parameters
+    const NUMBER_OF_CHESTS = 31; // odd number keeps mid definitive each time
+    const container = document.getElementById("chest-container");
+    const instruction = document.getElementById("instruction");
+    const resultBanner = document.getElementById("result-banner");
+
+    // Sounds
+    const correctSound = document.getElementById("correct-sound");
+    const wrongSound   = document.getElementById("wrong-sound");
+
+    // Initialise list of chest ids 1..N
+    let chests = Array.from({ length: NUMBER_OF_CHESTS }, (_, i) => i + 1);
+    let treasureChest = Math.ceil(Math.random() * NUMBER_OF_CHESTS);
+
+    // Render initial UI
+    function renderChests(list, highlightId) {
+      container.innerHTML = "";
+
+      list.forEach((id) => {
+        const chestEl = document.createElement("div");
+        chestEl.classList.add("chest");
+        if (id === highlightId) {
+          chestEl.classList.add("mid-choice");
+        }
+        chestEl.innerHTML = `<img src=\"https://cdn.jsdelivr.net/gh/akash1810/asset-repo@main/chest_icon.png\" alt=\"Chest\">`;
+        chestEl.dataset.id = id;
+        container.appendChild(chestEl);
+      });
+    }
+
+    function nextStep() {
+      // When only one left, game ends automatically
+      if (chests.length === 1) {
+        finishGame(chests[0]);
+        return;
+      }
+
+      // choose mid index
+      const midIndex = Math.floor(chests.length / 2);
+      const midChestId = chests[midIndex];
+
+      // Render with mid highlighted
+      renderChests(chests, midChestId);
+      instruction.textContent = "Tap the glowing chest";
+
+      // attach click handler ONLY for mid chest
+      container.querySelectorAll(".chest").forEach((el) => {
+        el.onclick = null; // reset
+        if (parseInt(el.dataset.id) === midChestId) {
+          el.onclick = () => {
+            if (midChestId === treasureChest) {
+              finishGame(midChestId, true);
+            } else {
+              // Determine side where treasure lies
+              wrongSound.play();
+              const isLeft = treasureChest < midChestId;
+              chests = isLeft
+                ? chests.slice(0, midIndex) // keep left half
+                : chests.slice(midIndex + 1); // keep right half
+              setTimeout(nextStep, 600);
+            }
+          };
+        }
+      });
+    }
+
+    function finishGame(chestId, clickedMid = false) {
+      renderChests([chestId], chestId);
+      const message = clickedMid
+        ? "Hooray! You found the treasure in one click!"
+        : "Yippee! You found the treasure!";
+      instruction.textContent = message;
+      resultBanner.textContent = "🥳";
+      correctSound.play();
+    }
+
+    // Start game
+    nextStep();
+  </script>
+</body>
+</html>
